@@ -1,0 +1,72 @@
+*{
+    margin: 0px;
+    padding: 0px;
+    font-size: 16px;
+    font-weight: 100;
+}
+
+#firstdiv{
+    background-color: rgb(26, 206, 226);
+}
+
+.container{
+    border-radius: 10px;
+    padding: 10px;
+    margin: 150px;
+    width: 300px;
+    height: 450px;
+    background-color: aqua;
+    box-shadow: 10000px rgb(255, 0, 0);
+}
+
+.cont1{
+    width: fit-content;
+    background-color: rgb(105, 94, 192);
+}
+
+.img{
+    width: 200px;
+    height:200px;
+    display: block;
+    margin: 0 auto;
+}
+
+.proname{
+    background-color: rgb(26, 206, 226);
+    color: black;
+    font-family: cursive;
+    width: fit-content;
+    margin-left: 50px;
+    font-size: larger;
+}
+
+.del{
+    margin-top: 30px;
+    color: rgb(32, 131, 142);
+}
+.price{
+    font-size: xx-large;
+    width: fit-content;
+}
+
+.add{
+    color: rgb(32, 131, 142);
+    height: 60px;
+    width: 100px;
+    background-color:rgb(255, 255, 255);
+}
+
+.discount{
+    color: rgb(124, 124, 124);
+}
+
+.buy{
+    background-color: royalblue;
+    height: 60px;
+    width: 100px;
+    margin-top: 30px;
+}
+
+.buttons{
+    text-align: center;
+}
