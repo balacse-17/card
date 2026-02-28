@@ -1,72 +1,95 @@
-*{
-    margin: 0px;
-    padding: 0px;
-    font-size: 16px;
-    font-weight: 100;
+* {
+  box-sizing: border-box;
 }
 
-#firstdiv{
-    background-color: rgb(26, 206, 226);
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f2f6ff;
+  color: #1f2937;
 }
 
-.container{
-    border-radius: 10px;
-    padding: 10px;
-    margin: 150px;
-    width: 300px;
-    height: 450px;
-    background-color: aqua;
-    box-shadow: 10000px rgb(255, 0, 0);
+.page {
+  max-width: 760px;
+  margin: 2rem auto;
+  padding: 0 1rem 2rem;
 }
 
-.cont1{
-    width: fit-content;
-    background-color: rgb(105, 94, 192);
+h1 {
+  margin-bottom: 0.25rem;
 }
 
-.img{
-    width: 200px;
-    height:200px;
-    display: block;
-    margin: 0 auto;
+.subtitle {
+  margin-top: 0;
+  color: #4b5563;
 }
 
-.proname{
-    background-color: rgb(26, 206, 226);
-    color: black;
-    font-family: cursive;
-    width: fit-content;
-    margin-left: 50px;
-    font-size: larger;
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-top: 1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
-.del{
-    margin-top: 30px;
-    color: rgb(32, 131, 142);
-}
-.price{
-    font-size: xx-large;
-    width: fit-content;
+form {
+  display: grid;
+  gap: 0.6rem;
 }
 
-.add{
-    color: rgb(32, 131, 142);
-    height: 60px;
-    width: 100px;
-    background-color:rgb(255, 255, 255);
+input,
+textarea,
+button {
+  font: inherit;
 }
 
-.discount{
-    color: rgb(124, 124, 124);
+input,
+textarea {
+  padding: 0.55rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
 }
 
-.buy{
-    background-color: royalblue;
-    height: 60px;
-    width: 100px;
-    margin-top: 30px;
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  background: #2563eb;
+  color: #fff;
 }
 
-.buttons{
-    text-align: center;
+button.secondary {
+  background: #4b5563;
+  margin-bottom: 0.8rem;
+}
+
+.status {
+  min-height: 1.3rem;
+  margin-bottom: 0;
+  color: #0f766e;
+}
+
+.feedback-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.feedback-list li {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.65rem;
+}
+
+.meta {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.actions-row {
+  margin-top: 0.75rem;
 }

@@ -1,29 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container" id="firstdiv" >
-        <p class="cont1">Nearest seller</p>
-        <div class="img1">
-            <img src="https://www.bbassets.com/media/uploads/p/l/40314117_2-beardo-hair-growth-vitalizer-sulphate-free-shampoo.jpg" class="img">
-                
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login & Feedback Portal</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <h1>Task 6: Database + Authentication</h1>
+      <p class="subtitle">Register/login, then access protected feedback APIs using your auth token.</p>
+
+      <section class="card">
+        <h2>Register</h2>
+        <form id="registerForm">
+          <label for="registerUsername">Username</label>
+          <input id="registerUsername" name="username" type="text" required />
+
+          <label for="registerPassword">Password</label>
+          <input id="registerPassword" name="password" type="password" required />
+
+          <button type="submit">Create Account</button>
+        </form>
+        <p id="registerStatus" class="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Login</h2>
+        <form id="loginForm">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" required />
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" required />
+
+          <button type="submit">Login</button>
+        </form>
+        <div class="actions-row">
+          <button id="logoutBtn" type="button" class="secondary">Logout</button>
         </div>
-        <p class="proname">Hair Growth Shampoo</p>
-        <p class="del">Delivery within 1 week</p>
-        <p class="price">$10.00</p>
+        <p id="loginStatus" class="status"></p>
+      </section>
 
-        <p class="discount">45% OFF</p>
+      <section class="card">
+        <h2>Feedback Form (Protected)</h2>
+        <form id="feedbackForm">
+          <label for="feedbackMessage">Message</label>
+          <textarea id="feedbackMessage" name="message" rows="4" required></textarea>
 
-        <div class="buttons">
-            <button class="add">Add to cart</button>
-            <button class="buy">Buy</button>
-        </div>
+          <label for="feedbackRating">Rating (1-5)</label>
+          <input id="feedbackRating" name="rating" type="number" min="1" max="5" required />
 
-    </div>
-</body>
+          <button type="submit">Submit Feedback</button>
+        </form>
+        <p id="feedbackStatus" class="status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Recent Feedback (Protected)</h2>
+        <button id="refreshBtn" type="button" class="secondary">Refresh List</button>
+        <ul id="feedbackList" class="feedback-list"></ul>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
 </html>
