@@ -1,0 +1,9 @@
+{
+  "name": "card-api-integration",
+  "version": "1.0.0",
+  "description": "Login and feedback form with REST API integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
