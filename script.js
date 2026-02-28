@@ -1,29 +1,47 @@
+const registerForm = document.getElementById('registerForm');
 const loginForm = document.getElementById('loginForm');
+const logoutBtn = document.getElementById('logoutBtn');
 const feedbackForm = document.getElementById('feedbackForm');
 const feedbackList = document.getElementById('feedbackList');
+const registerStatus = document.getElementById('registerStatus');
 const loginStatus = document.getElementById('loginStatus');
 const feedbackStatus = document.getElementById('feedbackStatus');
 const refreshBtn = document.getElementById('refreshBtn');
 
+let authToken = '';
 let loggedInUser = '';
 
+function setAuth(token, username) {
+  authToken = token;
+  loggedInUser = username;
+}
+
 async function loadFeedback() {
+  if (!authToken) {
+    feedbackList.innerHTML = '<li>Login required to load feedback.</li>';
+    return;
+  }
+
   feedbackList.innerHTML = '<li>Loading feedback...</li>';
 
   try {
-    const response = await fetch('/api/feedback');
+    const response = await fetch('/api/feedback', {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+
+    const data = await response.json();
     if (!response.ok) {
-      throw new Error('Failed to fetch feedback.');
+      throw new Error(data.message || 'Failed to fetch feedback.');
     }
 
-    const feedbackItems = await response.json();
-
-    if (feedbackItems.length === 0) {
+    if (data.length === 0) {
       feedbackList.innerHTML = '<li>No feedback yet.</li>';
       return;
     }
 
-    feedbackList.innerHTML = feedbackItems
+    feedbackList.innerHTML = data
       .map(
         (item) => `
           <li>
@@ -38,6 +56,34 @@ async function loadFeedback() {
     feedbackList.innerHTML = `<li>${error.message}</li>`;
   }
 }
+
+registerForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(registerForm);
+  const payload = {
+    username: formData.get('username').trim(),
+    password: formData.get('password').trim()
+  };
+
+  try {
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Registration failed.');
+    }
+
+    registerStatus.textContent = `Registered user ${data.username}. You can now login.`;
+    registerForm.reset();
+  } catch (error) {
+    registerStatus.textContent = error.message;
+  }
+});
 
 loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -56,15 +102,41 @@ loginForm.addEventListener('submit', async (event) => {
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.message || 'Login failed.');
     }
 
-    loggedInUser = data.user.username;
+    setAuth(data.token, data.user.username);
     loginStatus.textContent = `Logged in as ${loggedInUser}.`;
     feedbackStatus.textContent = '';
-    feedbackForm.reset();
+    await loadFeedback();
+  } catch (error) {
+    loginStatus.textContent = error.message;
+  }
+});
+
+logoutBtn.addEventListener('click', async () => {
+  if (!authToken) {
+    loginStatus.textContent = 'You are not logged in.';
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/logout', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Logout failed.');
+    }
+
+    setAuth('', '');
+    loginStatus.textContent = data.message;
+    feedbackList.innerHTML = '<li>Login required to load feedback.</li>';
   } catch (error) {
     loginStatus.textContent = error.message;
   }
@@ -73,14 +145,13 @@ loginForm.addEventListener('submit', async (event) => {
 feedbackForm.addEventListener('submit', async (event) => {
   event.preventDefault();
 
-  if (!loggedInUser) {
+  if (!authToken) {
     feedbackStatus.textContent = 'Please login first.';
     return;
   }
 
   const formData = new FormData(feedbackForm);
   const payload = {
-    username: loggedInUser,
     message: formData.get('message').trim(),
     rating: Number(formData.get('rating'))
   };
@@ -88,12 +159,14 @@ feedbackForm.addEventListener('submit', async (event) => {
   try {
     const response = await fetch('/api/feedback', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`
+      },
       body: JSON.stringify(payload)
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.message || 'Unable to submit feedback.');
     }

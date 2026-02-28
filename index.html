@@ -8,8 +8,22 @@
   </head>
   <body>
     <main class="page">
-      <h1>API Integration Demo</h1>
-      <p class="subtitle">Login and submit feedback through your own REST API.</p>
+      <h1>Task 6: Database + Authentication</h1>
+      <p class="subtitle">Register/login, then access protected feedback APIs using your auth token.</p>
+
+      <section class="card">
+        <h2>Register</h2>
+        <form id="registerForm">
+          <label for="registerUsername">Username</label>
+          <input id="registerUsername" name="username" type="text" required />
+
+          <label for="registerPassword">Password</label>
+          <input id="registerPassword" name="password" type="password" required />
+
+          <button type="submit">Create Account</button>
+        </form>
+        <p id="registerStatus" class="status"></p>
+      </section>
 
       <section class="card">
         <h2>Login</h2>
@@ -22,11 +36,14 @@
 
           <button type="submit">Login</button>
         </form>
+        <div class="actions-row">
+          <button id="logoutBtn" type="button" class="secondary">Logout</button>
+        </div>
         <p id="loginStatus" class="status"></p>
       </section>
 
       <section class="card">
-        <h2>Feedback Form</h2>
+        <h2>Feedback Form (Protected)</h2>
         <form id="feedbackForm">
           <label for="feedbackMessage">Message</label>
           <textarea id="feedbackMessage" name="message" rows="4" required></textarea>
@@ -40,7 +57,7 @@
       </section>
 
       <section class="card">
-        <h2>Recent Feedback</h2>
+        <h2>Recent Feedback (Protected)</h2>
         <button id="refreshBtn" type="button" class="secondary">Refresh List</button>
         <ul id="feedbackList" class="feedback-list"></ul>
       </section>
