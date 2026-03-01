@@ -15,7 +15,6 @@ const feedbackStatus = document.getElementById('feedbackStatus');
 const totalRecords = document.getElementById('totalRecords');
 const totalProfiles = document.getElementById('totalProfiles');
 const totalFeedback = document.getElementById('totalFeedback');
-const dbPlaceholders = document.getElementById('dbPlaceholders');
 
 let authToken = '';
 let loggedInUser = '';
@@ -38,13 +37,14 @@ async function updateSystemMetrics() {
       throw new Error(data.message || 'Could not load system info.');
     }
 
-    const { db, metrics } = data;
-    dbPlaceholders.textContent = `DB_NAME: ${db.name} · DB_USERNAME: ${db.username} · DB_PASSWORD: ${db.password}`;
+    const { metrics } = data;
     totalRecords.textContent = metrics.totalRecords;
     totalProfiles.textContent = metrics.profiles;
     totalFeedback.textContent = metrics.feedback;
   } catch {
-    dbPlaceholders.textContent = 'DB placeholders unavailable.';
+    totalRecords.textContent = '-';
+    totalProfiles.textContent = '-';
+    totalFeedback.textContent = '-';
   }
 }
 
