@@ -3,63 +3,143 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login & Feedback Portal</title>
+    <title>Task 6 UI</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main class="page">
-      <h1>Task 6: Database + Authentication</h1>
-      <p class="subtitle">Register/login, then access protected feedback APIs using your auth token.</p>
+    <header class="topbar">
+      <div class="container nav-wrap">
+        <h1>Task 6 UI</h1>
+        <nav>
+          <a href="#forms">Forms</a>
+          <a href="#submissions">Submissions</a>
+        </nav>
+      </div>
+    </header>
 
-      <section class="card">
-        <h2>Register</h2>
-        <form id="registerForm">
-          <label for="registerUsername">Username</label>
-          <input id="registerUsername" name="username" type="text" required />
-
-          <label for="registerPassword">Password</label>
-          <input id="registerPassword" name="password" type="password" required />
-
-          <button type="submit">Create Account</button>
-        </form>
-        <p id="registerStatus" class="status"></p>
-      </section>
-
-      <section class="card">
-        <h2>Login</h2>
-        <form id="loginForm">
-          <label for="username">Username</label>
-          <input id="username" name="username" type="text" required />
-
-          <label for="password">Password</label>
-          <input id="password" name="password" type="password" required />
-
-          <button type="submit">Login</button>
-        </form>
-        <div class="actions-row">
-          <button id="logoutBtn" type="button" class="secondary">Logout</button>
+    <main class="container">
+      <section class="hero">
+        <div class="hero-content">
+          <p class="eyebrow">DATABASE + AUTH INTEGRATION</p>
+          <h2>Task 6: Secure Storage, Authentication, and Authorized APIs</h2>
+          <p>
+            Matches the Task 4 layout style while adding real user registration/login, protected
+            endpoints, and persistent database-backed form records.
+          </p>
         </div>
-        <p id="loginStatus" class="status"></p>
+        <aside class="metrics-card">
+          <h3>● Live Session Metrics</h3>
+          <p class="muted">MySQL configured via environment variables.</p>
+          <hr />
+          <div class="metrics-grid">
+            <span>Total records</span><strong id="totalRecords">0</strong>
+            <span>Profiles</span><strong id="totalProfiles">0</strong>
+            <span>Feedback</span><strong id="totalFeedback">0</strong>
+          </div>
+        </aside>
       </section>
 
-      <section class="card">
-        <h2>Feedback Form (Protected)</h2>
-        <form id="feedbackForm">
-          <label for="feedbackMessage">Message</label>
-          <textarea id="feedbackMessage" name="message" rows="4" required></textarea>
-
-          <label for="feedbackRating">Rating (1-5)</label>
-          <input id="feedbackRating" name="rating" type="number" min="1" max="5" required />
-
-          <button type="submit">Submit Feedback</button>
-        </form>
-        <p id="feedbackStatus" class="status"></p>
+      <section class="feature-grid">
+        <article class="feature-card"><p>Framework</p><strong>Vanilla JS + Node</strong></article>
+        <article class="feature-card"><p>Database</p><strong>MySQL (Env Config)</strong></article>
+        <article class="feature-card"><p>Security</p><strong>Auth + RBAC checks</strong></article>
+        <article class="feature-card"><p>Validation</p><strong>Client + Server</strong></article>
       </section>
 
-      <section class="card">
-        <h2>Recent Feedback (Protected)</h2>
-        <button id="refreshBtn" type="button" class="secondary">Refresh List</button>
-        <ul id="feedbackList" class="feedback-list"></ul>
+      <section id="forms" class="forms-grid">
+        <article class="panel">
+          <h3>Authentication</h3>
+          <form id="registerForm" class="stacked">
+            <label>Register Username</label>
+            <input name="username" type="text" required />
+            <label>Register Password</label>
+            <input name="password" type="password" required />
+            <button type="submit">Create Account</button>
+          </form>
+          <p id="registerStatus" class="status"></p>
+
+          <form id="loginForm" class="stacked auth-login">
+            <label>Login Username</label>
+            <input name="username" type="text" required />
+            <label>Login Password</label>
+            <input name="password" type="password" required />
+            <button type="submit">Login</button>
+          </form>
+
+          <button id="logoutBtn" class="secondary" type="button">Logout</button>
+          <p id="loginStatus" class="status"></p>
+        </article>
+
+        <article class="panel">
+          <h3>Profile Form (Protected)</h3>
+          <form id="profileForm" class="stacked">
+            <label>Full Name</label>
+            <input name="fullName" type="text" required />
+            <label>Email</label>
+            <input name="email" type="email" required />
+            <div class="two-col">
+              <div>
+                <label>Age</label>
+                <input name="age" type="number" min="0" />
+              </div>
+              <div>
+                <label>Favorite Color</label>
+                <input name="favoriteColor" type="color" value="#1d4ed8" />
+              </div>
+            </div>
+            <label>Short Bio</label>
+            <textarea name="bio" rows="3" required></textarea>
+            <label class="checkline"><input name="newsletter" type="checkbox" /> Subscribe</label>
+            <button type="submit">Submit Profile</button>
+          </form>
+          <p id="profileStatus" class="status"></p>
+        </article>
+
+        <article class="panel">
+          <h3>Feedback Form (Protected)</h3>
+          <form id="feedbackForm" class="stacked">
+            <label>Topic</label>
+            <select name="topic" required>
+              <option value="">Select one...</option>
+              <option>UI/UX</option>
+              <option>Performance</option>
+              <option>Bug Report</option>
+              <option>Other</option>
+            </select>
+
+            <label>Message</label>
+            <textarea name="message" rows="4" required></textarea>
+
+            <label>Sentiment</label>
+            <div class="inline-options">
+              <label><input type="radio" name="sentiment" value="Positive" /> Positive</label>
+              <label><input type="radio" name="sentiment" value="Neutral" checked /> Neutral</label>
+              <label><input type="radio" name="sentiment" value="Negative" /> Negative</label>
+            </div>
+
+            <label>Preferred Contact Time</label>
+            <select name="contactTime">
+              <option>Morning</option>
+              <option>Afternoon</option>
+              <option>Evening</option>
+            </select>
+
+            <label>Rating (1-5)</label>
+            <input type="range" min="1" max="5" step="1" value="3" id="ratingRange" />
+            <p class="muted">Selected: <strong id="ratingSelected">3</strong></p>
+
+            <button type="submit" class="success">Submit Feedback</button>
+          </form>
+          <p id="feedbackStatus" class="status"></p>
+        </article>
+      </section>
+
+      <section id="submissions" class="panel">
+        <div class="sub-header">
+          <h3>Validated Data (Database Storage)</h3>
+          <button id="refreshBtn" class="secondary" type="button">Newest first</button>
+        </div>
+        <ul id="submissionList" class="submission-list"></ul>
       </section>
     </main>
 

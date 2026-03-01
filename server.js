@@ -2,60 +2,101 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { DatabaseSync } = require('node:sqlite');
+const mysql = require('mysql2/promise');
 
 const PORT = process.env.PORT || 3000;
-const DB_PATH = path.join(__dirname, 'app.db');
 
-const db = new DatabaseSync(DB_PATH);
-db.exec(`
-  PRAGMA foreign_keys = ON;
+const DATABASE_CONFIG = {
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USERNAME || 'DB_USERNAME',
+  password: process.env.DB_PASSWORD || 'DB_PASSWORD',
+  database: process.env.DB_NAME || 'DB_NAME'
+};
 
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    salt TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+let pool;
 
-  CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
+async function initializeDatabase() {
+  pool = mysql.createPool({
+    host: DATABASE_CONFIG.host,
+    port: DATABASE_CONFIG.port,
+    user: DATABASE_CONFIG.user,
+    password: DATABASE_CONFIG.password,
+    database: DATABASE_CONFIG.database,
+    waitForConnections: true,
+    connectionLimit: 10
+  });
 
-  CREATE TABLE IF NOT EXISTS feedback (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    message TEXT NOT NULL,
-    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      salt VARCHAR(255) NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token VARCHAR(255) PRIMARY KEY,
+      user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS profiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      full_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      age INT NULL,
+      favorite_color VARCHAR(20) NULL,
+      bio TEXT NOT NULL,
+      newsletter TINYINT(1) NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      topic VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      sentiment VARCHAR(20) NULL,
+      rating INT NOT NULL,
+      contact_time VARCHAR(30) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_feedback_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT chk_feedback_rating CHECK (rating >= 1 AND rating <= 5)
+    ) ENGINE=InnoDB;
+  `);
+
+  await seedDefaultUser();
+}
 
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
 }
 
-function seedDefaultUser() {
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
-  if (existing) {
+async function seedDefaultUser() {
+  const [existing] = await pool.query('SELECT id FROM users WHERE username = ?', ['admin']);
+  if (existing.length > 0) {
     return;
   }
 
   const salt = crypto.randomBytes(16).toString('hex');
   const passwordHash = hashPassword('admin123', salt);
-  db.prepare('INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)').run(
+  await pool.query('INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)', [
     'admin',
     passwordHash,
     salt
-  );
+  ]);
 }
-
-seedDefaultUser();
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { 'Content-Type': 'application/json' });
@@ -91,7 +132,7 @@ function readBody(req) {
   });
 }
 
-function getAuthenticatedUser(req) {
+async function getAuthenticatedUser(req) {
   const authHeader = req.headers.authorization || '';
   if (!authHeader.startsWith('Bearer ')) {
     return null;
@@ -102,24 +143,23 @@ function getAuthenticatedUser(req) {
     return null;
   }
 
-  const session = db
-    .prepare(
-      `SELECT users.id, users.username
-       FROM sessions
-       JOIN users ON users.id = sessions.user_id
-       WHERE sessions.token = ?`
-    )
-    .get(token);
+  const [rows] = await pool.query(
+    `SELECT users.id, users.username
+     FROM sessions
+     JOIN users ON users.id = sessions.user_id
+     WHERE sessions.token = ?`,
+    [token]
+  );
 
-  if (!session) {
+  if (rows.length === 0) {
     return null;
   }
 
-  return { token, ...session };
+  return { token, ...rows[0] };
 }
 
-function requireAuth(req, res) {
-  const user = getAuthenticatedUser(req);
+async function requireAuth(req, res) {
+  const user = await getAuthenticatedUser(req);
   if (!user) {
     sendJson(res, 401, { message: 'Unauthorized. Please login with a valid token.' });
     return null;
@@ -162,9 +202,19 @@ const server = http.createServer(async (req, res) => {
   const { method, url } = req;
 
   try {
+    if (url === '/api/system' && method === 'GET') {
+      const [rows] = await pool.query(
+        `SELECT
+          (SELECT COUNT(*) FROM profiles) AS profiles,
+          (SELECT COUNT(*) FROM feedback) AS feedback,
+          (SELECT COUNT(*) FROM profiles) + (SELECT COUNT(*) FROM feedback) AS totalRecords`
+      );
+      sendJson(res, 200, { metrics: rows[0] });
+      return;
+    }
+
     if (url === '/api/register' && method === 'POST') {
       const { username, password } = await readBody(req);
-
       if (!username || !password) {
         sendJson(res, 400, { message: 'Username and password are required.' });
         return;
@@ -178,19 +228,20 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(cleanUsername);
-      if (exists) {
+      const [exists] = await pool.query('SELECT id FROM users WHERE username = ?', [cleanUsername]);
+      if (exists.length > 0) {
         sendJson(res, 409, { message: 'Username already exists.' });
         return;
       }
 
       const salt = crypto.randomBytes(16).toString('hex');
       const passwordHash = hashPassword(password, salt);
-      const result = db
-        .prepare('INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)')
-        .run(cleanUsername, passwordHash, salt);
+      const [result] = await pool.query(
+        'INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)',
+        [cleanUsername, passwordHash, salt]
+      );
 
-      sendJson(res, 201, { id: result.lastInsertRowid, username: cleanUsername });
+      sendJson(res, 201, { id: result.insertId, username: cleanUsername });
       return;
     }
 
@@ -202,23 +253,19 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const user = db
-        .prepare('SELECT id, username, password_hash, salt FROM users WHERE username = ?')
-        .get(String(username).trim());
+      const [rows] = await pool.query(
+        'SELECT id, username, password_hash, salt FROM users WHERE username = ?',
+        [String(username).trim()]
+      );
+      const user = rows[0];
 
-      if (!user) {
-        sendJson(res, 401, { message: 'Invalid credentials.' });
-        return;
-      }
-
-      const attemptedHash = hashPassword(password, user.salt);
-      if (attemptedHash !== user.password_hash) {
+      if (!user || hashPassword(password, user.salt) !== user.password_hash) {
         sendJson(res, 401, { message: 'Invalid credentials.' });
         return;
       }
 
       const token = crypto.randomBytes(32).toString('hex');
-      db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
+      await pool.query('INSERT INTO sessions (token, user_id) VALUES (?, ?)', [token, user.id]);
 
       sendJson(res, 200, {
         message: 'Login successful.',
@@ -229,45 +276,63 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url === '/api/logout' && method === 'POST') {
-      const authUser = requireAuth(req, res);
+      const authUser = await requireAuth(req, res);
       if (!authUser) {
         return;
       }
 
-      db.prepare('DELETE FROM sessions WHERE token = ?').run(authUser.token);
+      await pool.query('DELETE FROM sessions WHERE token = ?', [authUser.token]);
       sendJson(res, 200, { message: 'Logged out successfully.' });
       return;
     }
 
-    if (url === '/api/feedback' && method === 'GET') {
-      const authUser = requireAuth(req, res);
+    if (url === '/api/profiles' && method === 'POST') {
+      const authUser = await requireAuth(req, res);
       if (!authUser) {
         return;
       }
 
-      const rows = db
-        .prepare(
-          `SELECT feedback.id, users.username, feedback.message, feedback.rating, feedback.created_at AS createdAt
-           FROM feedback
-           JOIN users ON users.id = feedback.user_id
-           ORDER BY feedback.id DESC`
-        )
-        .all();
+      const { fullName, email, age, favoriteColor, bio, newsletter } = await readBody(req);
+      if (!fullName || !email || !bio) {
+        sendJson(res, 400, { message: 'Full name, email, and bio are required.' });
+        return;
+      }
 
-      sendJson(res, 200, rows);
+      const [result] = await pool.query(
+        `INSERT INTO profiles (user_id, full_name, email, age, favorite_color, bio, newsletter)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          authUser.id,
+          String(fullName).trim(),
+          String(email).trim(),
+          Number(age) || null,
+          String(favoriteColor || '#1d4ed8'),
+          String(bio).trim(),
+          newsletter ? 1 : 0
+        ]
+      );
+
+      const [rows] = await pool.query(
+        `SELECT profiles.id, users.username, profiles.full_name AS fullName, profiles.email,
+         profiles.age, profiles.favorite_color AS favoriteColor, profiles.bio,
+         profiles.newsletter, profiles.created_at AS createdAt
+         FROM profiles JOIN users ON users.id = profiles.user_id WHERE profiles.id = ?`,
+        [result.insertId]
+      );
+
+      sendJson(res, 201, rows[0]);
       return;
     }
 
     if (url === '/api/feedback' && method === 'POST') {
-      const authUser = requireAuth(req, res);
+      const authUser = await requireAuth(req, res);
       if (!authUser) {
         return;
       }
 
-      const { message, rating } = await readBody(req);
-
-      if (!message || !rating) {
-        sendJson(res, 400, { message: 'Message and rating are required.' });
+      const { topic, message, sentiment, rating, contactTime } = await readBody(req);
+      if (!topic || !message || !rating) {
+        sendJson(res, 400, { message: 'Topic, message and rating are required.' });
         return;
       }
 
@@ -277,90 +342,57 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const result = db
-        .prepare('INSERT INTO feedback (user_id, message, rating) VALUES (?, ?, ?)')
-        .run(authUser.id, String(message).trim(), numericRating);
+      const [result] = await pool.query(
+        `INSERT INTO feedback (user_id, topic, message, sentiment, rating, contact_time)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          authUser.id,
+          String(topic).trim(),
+          String(message).trim(),
+          String(sentiment || 'Neutral'),
+          numericRating,
+          String(contactTime || 'Morning')
+        ]
+      );
 
-      const newFeedback = db
-        .prepare(
-          `SELECT feedback.id, users.username, feedback.message, feedback.rating, feedback.created_at AS createdAt
-           FROM feedback
-           JOIN users ON users.id = feedback.user_id
-           WHERE feedback.id = ?`
-        )
-        .get(result.lastInsertRowid);
+      const [rows] = await pool.query(
+        `SELECT feedback.id, users.username, feedback.topic, feedback.message,
+         feedback.sentiment, feedback.rating, feedback.contact_time AS contactTime,
+         feedback.created_at AS createdAt
+         FROM feedback JOIN users ON users.id = feedback.user_id WHERE feedback.id = ?`,
+        [result.insertId]
+      );
 
-      sendJson(res, 201, newFeedback);
+      sendJson(res, 201, rows[0]);
       return;
     }
 
-    const feedbackByIdMatch = url.match(/^\/api\/feedback\/(\d+)$/);
-    if (feedbackByIdMatch) {
-      const authUser = requireAuth(req, res);
+    if (url === '/api/submissions' && method === 'GET') {
+      const authUser = await requireAuth(req, res);
       if (!authUser) {
         return;
       }
 
-      const feedbackId = Number(feedbackByIdMatch[1]);
-      const feedback = db
-        .prepare(
-          `SELECT feedback.id, feedback.user_id, users.username, feedback.message, feedback.rating, feedback.created_at AS createdAt
-           FROM feedback JOIN users ON users.id = feedback.user_id WHERE feedback.id = ?`
-        )
-        .get(feedbackId);
+      const [profiles] = await pool.query(
+        `SELECT 'profile' AS type, profiles.id, users.username,
+         profiles.full_name AS title, profiles.bio AS details,
+         profiles.created_at AS createdAt
+         FROM profiles JOIN users ON users.id = profiles.user_id`
+      );
 
-      if (!feedback) {
-        sendJson(res, 404, { message: 'Feedback not found.' });
-        return;
-      }
+      const [feedback] = await pool.query(
+        `SELECT 'feedback' AS type, feedback.id, users.username,
+         feedback.topic AS title, feedback.message AS details,
+         feedback.created_at AS createdAt
+         FROM feedback JOIN users ON users.id = feedback.user_id`
+      );
 
-      if (method === 'GET') {
-        sendJson(res, 200, feedback);
-        return;
-      }
+      const items = [...profiles, ...feedback].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
-      if (feedback.user_id !== authUser.id) {
-        sendJson(res, 403, { message: 'Forbidden: You can only update/delete your own feedback.' });
-        return;
-      }
-
-      if (method === 'PUT') {
-        const { message, rating } = await readBody(req);
-
-        if (!message || !rating) {
-          sendJson(res, 400, { message: 'Message and rating are required.' });
-          return;
-        }
-
-        const numericRating = Number(rating);
-        if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
-          sendJson(res, 400, { message: 'Rating must be an integer between 1 and 5.' });
-          return;
-        }
-
-        db.prepare('UPDATE feedback SET message = ?, rating = ? WHERE id = ?').run(
-          String(message).trim(),
-          numericRating,
-          feedbackId
-        );
-
-        const updated = db
-          .prepare(
-            `SELECT feedback.id, users.username, feedback.message, feedback.rating, feedback.created_at AS createdAt
-             FROM feedback JOIN users ON users.id = feedback.user_id WHERE feedback.id = ?`
-          )
-          .get(feedbackId);
-
-        sendJson(res, 200, updated);
-        return;
-      }
-
-      if (method === 'DELETE') {
-        db.prepare('DELETE FROM feedback WHERE id = ?').run(feedbackId);
-        res.writeHead(204);
-        res.end();
-        return;
-      }
+      sendJson(res, 200, items);
+      return;
     }
 
     if (url.startsWith('/api/')) {
@@ -374,6 +406,14 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+initializeDatabase()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+      console.log('MySQL connection initialized from environment variables.');
+    });
+  })
+  .catch((error) => {
+    console.error('Failed to initialize MySQL:', error.message);
+    process.exit(1);
+  });
